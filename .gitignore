@@ -2,6 +2,8 @@
 venv
 media
 
+*.yaml
+*.json
 # media files to hiding
 *.gif
 *.jpg

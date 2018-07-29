@@ -1,29 +1,54 @@
 import argparse
 import os
+import vk_api
+import json
+import yaml
+from vk_api.longpoll import VkLongPoll, VkEventType, Event
 
 from vk_media_saver.saver import MediaSaver
 
+def message_handler(event: Event):
+    print(event.attachments.items())
+    msg = vk.messages.getById(message_ids=event.message_id)
+    files_list = media_saver.get_all_attachments_list(msg['items'])
+    media_saver.download_files(files_list)
+
+
+def main():
+    # vk.messages.send(peer_id=params["admin_id"], message="starting vk bot")
+    longpoll = VkLongPoll(vk_session)
+
+    global running
+    global process_list
+    try:
+        running = True
+
+        for event in longpoll.listen():
+            if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+                message_handler(event)
+
+    except InterruptedError:
+        running = False
+
 if __name__ == '__main__':
     # loading params from params.json with login, pass, token, etc
-    # json_params = open("params.json").read()
-    # params = json.loads(json_params)
-    # vk_session = vk_api.VkApi(params["login"], params["password"])
-    # vk_session = vk_api.VkApi(token=params["token"])
+    with open("params.yaml") as stream:
+        params = yaml.load(stream)
+
+    args_parser = argparse.ArgumentParser(
+        description='Bot for downloading files from attachments and packing them into one archive')
+    args_parser.add_argument('--login', '-l', type=str, dest='login', help='vk login',
+                             default=params['vk']["login"])
+    args_parser.add_argument('--password', '-p', type=str, dest='password', help='vk password',
+                             default=params['vk']["password"])
+    parsed_args = args_parser.parse_args()
+
+    # vk_session = vk_api.VkApi(parsed_args.login, parsed_args.password)
+    vk_session = vk_api.VkApi(token=params['vk']["token"]) # if use vk_token comment auth() line
 
     # vk_session.auth()  # auth for login, pass session
-    # vk = vk_session.get_api()
+    vk = vk_session.get_api()
 
-    # args_parser = argparse.ArgumentParser(description='')
-    # args_parser.add_argument('--login', '-l', type=str, dest='login', help='vk login',
-    #                          default=params["login"])
-    # args_parser.add_argument('--password', '-p', type=str, dest='password', help='vk password',
-    #                          default=params["password"])
-    # args_parser.add_argument('--wait', '-w', type=float, dest='wait', help='Timeout',
-    #                          default=5)
-    # parsed_args = args_parser.parse_args()
-    media_saver = MediaSaver()
-    print(media_saver.generate_date_string())
-    media_saver.download(
-        'https://psv4.userapi.com/c6035/u16000205/docs/6b45a2423ad0/puppy2.gif?extra=2rXhQoZ'
-        '-8739QgZoELbIKUX8b6FuPgpRmy2JwLgQEKiYgj26mXQmD6ckibdaAgd'
-        '-03Kvyc62pA6IB5TFkotbnHL9M7lZfO91ZmJKL5I1cD6G0DUYDBRa9j_FHCvw9wGZK10-Sbg95e0', '.\\media\\', datatime=True)
+    # vk.messages.send(peer_id=params['vk']['admin_id'], message="new app start")
+    media_saver = MediaSaver(vk)
+    main()
